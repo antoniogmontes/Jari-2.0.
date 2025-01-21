@@ -128,6 +128,7 @@ void decoder_command(const std_msgs__msg__Int32 * msg) {
     case 7: current_state = angry; break;
     case 8: current_state = scared; break;
     case 9: current_state = surprised;  break;
+    // Añadir el resto de casos (movimientos)
     default: current_state = off; break;
   }
   
