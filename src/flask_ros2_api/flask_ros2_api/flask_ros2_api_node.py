@@ -8,13 +8,10 @@ class Flask(Node):
         
         # Subscriptores
         # Servidor Web FLASK
-        self.sub_flask = self.create_subscription(String, '/flask', self.flask_callback, 10)
-	
-        self.sub_flask_to_coord = self.create_subscription(String, '/flask_to_coord', self.flask_to_coord_callback, 10)
+        self.sub_flask = self.create_subscription(String, '/send_cmd', self.flask_callback, 10)
 
         # Publicaciones
-
-        self.pub_send_flask = self.create_publisher(String, '/send_flask', 10)
+        self.pub_flask = self.create_publisher(String, '/button', 10)
 
 	
     def flask_callback(self, msg):

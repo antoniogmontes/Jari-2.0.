@@ -12,7 +12,8 @@ class Coordinator(Node):
 
         # Servidor Web FLASK
         self.sub_button = self.create_subscription(String, '/button', self.go_button, 10)
-        	
+        self.pub_send_cmd_flask = self.create_publisher(String, '/send_cmd', 10)
+
 	    # Microfono + Altavoz
         self.command_microfono = self.create_subscription(String, '/command_micro', self.commands_micro, 10)
         self.angle_microfono = self.create_subscription(Float32, '/angle_micro', self.angles_micro, 10)
@@ -64,6 +65,7 @@ class Coordinator(Node):
                 msgNum.data = number
                 self.pub_send_command_arduino.publish(msgNum)
                 self.pub_send_command_microfono.publish(String(data=msg.data))
+                self.pub_send_cmd_flask.publish(String(data=msg.data))
                 self.get_logger().info(f"Mensaje recibido: '{msg.data}', enviado como: {number}")
             else:
                 self.get_logger().warn(f"Mensaje no reconocido: '{msg.data}'")
@@ -87,7 +89,20 @@ class Coordinator(Node):
 
     def go_button(self, msg):
         if msg.data:  # Si el botón está presionado
-            self.get_logger().info('Botón presionado, iniciando acción')  
+            self.get_logger().info('Botón presionado, iniciando acción')
+
+            """Callback que recibe un string, lo decodifica y publica el valor numérico."""
+            number = self.decodificar_mensaje(msg.data)
+            if number != -1:
+                msgNum = Int32()
+                msgNum.data = number
+                self.pub_send_command_arduino.publish(msgNum)
+                self.pub_send_command_microfono.publish(String(data=msg.data))
+                self.pub_send_cmd_flask.publish(String(data=msg.data))
+                self.get_logger().info(f"Mensaje recibido: '{msg.data}', enviado como: {number}")
+            else:
+                self.get_logger().warn(f"Mensaje no reconocido: '{msg.data}'")
+
 
 def main(args=None):
     rclpy.init(args=args)
