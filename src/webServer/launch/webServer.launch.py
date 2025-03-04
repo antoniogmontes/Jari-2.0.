@@ -5,11 +5,11 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():    
     return LaunchDescription([
-    	# Nodo Flask
+    	# Nodo webServer
         Node(
-            package="flask_ros2_api",
-            executable="flask_ros2_api_node",
-            name="flask_ros2_api_node",
+            package="webServer",
+            executable="webServer_node",
+            name="webServer_node",
             output='screen',  # Muestra salida en consola para depuración
         )
     ])

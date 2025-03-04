@@ -68,7 +68,8 @@ void subscription_callback(const void * msgin)
 {  
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   // digitalWrite(LED_PIN, (msg->data == 0) ? LOW : HIGH);
-  Serial2.print(msg->data); // Enviar los mensajes al arduino inferior
+  int num = msg->data;
+  Serial2.print(num); // Enviar los mensajes al arduino inferior
 
   decoder_command(msg);
 }
@@ -102,10 +103,10 @@ void setup() {
   // Inicializar el segundo puerto serial
   Serial2.begin(9600, SERIAL_8N1, 16, 17);
 
-  // Limpiar el buffer del puerto serial
+  // Limpiar el buffer del puerto serial                                
   while (Serial2.available() > 0) {
       Serial2.read();
-  }
+  } 
 
   // Configuracion tira LED
   tira.begin();
