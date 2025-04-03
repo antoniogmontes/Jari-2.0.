@@ -3,6 +3,8 @@ from rclpy.node import Node
 from std_msgs.msg import Bool, String, Float32, Int32
 import subprocess
 import signal
+import os
+import psutil  # Agrega esta librería (instalar con `pip install psutil` si no la tienes)
 
 class Coordinator(Node):
     def __init__(self):
@@ -34,12 +36,11 @@ class Coordinator(Node):
 
         # Diccionario con nodos que lanzar según el modo
         self.modes = {
-            'cmd_presencial': [
-                ['ros2', 'launch', 'coordinador', 'normal_mode.launch.py']
+            'web_server': [
+                ['ros2', 'launch', 'web_server', 'web_server.launch.py']
             ],
-            'cmd_audio': [
-                ['ros2', 'launch', 'coordinador', 'node_micro.launch.py'],
-                ['ros2', 'run', 'pkg_audio', 'node_audio']
+            'micro': [
+                ['ros2', 'launch', 'micro', 'micro.launch.py'],
             ],
             'cmd_msgs': [
                 ['ros2', 'run', 'pkg_camera', 'node_camera']
@@ -47,7 +48,7 @@ class Coordinator(Node):
             'conversacion_presencial': [
                 ['ros2', 'launch', 'coordinador', 'normal_mode.launch.py']
             ],
-            'conversacin_audios': [
+            'conversacion_audios': [
                 ['ros2', 'launch', 'coordinador', 'node_micro.launch.py'],
                 ['ros2', 'run', 'pkg_audio', 'node_audio']
             ],
@@ -124,11 +125,13 @@ class Coordinator(Node):
             else:
                 self.pub_send_cmd_arduino.publish(0)
 
-    def go_camera(self, msg):
+    # Callback new command from camera
+    def commands_camera(self, msg):
         if msg.data:  # Si hay un nuevo mensaje de la camara /camera
             self.get_logger().info('Recibiendo mensaje camara')
             self.get_logger().info(msg.data)
 
+    # Callback new command from web_server
     def commands_flask(self, msg):
         if msg.data:  # Si hay un nuevo mensaje de flask /cmd_flask
             self.get_logger().info('Recibiendo mensaje flask')
@@ -152,27 +155,65 @@ class Coordinator(Node):
             self.get_logger().info(msg.data)
         
             new_mode = msg.data.lower()
-            if new_mode != self.current_mode:
-                self.get_logger().info(f'Cambiando de modo: {self.current_mode} -> {new_mode}')
-                self.shutdown_active_processes()
+
+            if new_mode == self.current_mode:
+                self.get_logger().info(f"El modo {new_mode} ya está activo.")
+                return
+        
+
+            self.get_logger().info(f'Cambiando de modo: {self.current_mode} -> {new_mode}')
+     
+            self.shutdown_active_processes()
+   
+            if new_mode in self.modes:
                 self.launch_mode(new_mode)
                 self.current_mode = new_mode
+            else:
+                self.get_logger().warn(f"Modo desconocido: {new_mode}")
+
 
     def launch_mode(self, mode):
         if mode in self.modes:
             for cmd in self.modes[mode]:
+                self.get_logger().info(f"Lanzando: {' '.join(cmd)}")
                 proc = subprocess.Popen(cmd)
                 self.active_processes[proc.pid] = proc
-                self.get_logger().info(f"Lanzado proceso: {' '.join(cmd)} con PID {proc.pid}")
         else:
             self.get_logger().warn(f"Modo desconocido: {mode}")
 
+
     def shutdown_active_processes(self):
-        for pid, proc in self.active_processes.items():
-            self.get_logger().info(f"Terminando proceso con PID {pid}")
+        if not self.active_processes:
+            self.get_logger().info("No hay procesos activos para cerrar.")
+            return
+
+        self.get_logger().info("Cerrando procesos activos...")
+
+        for pid, proc in list(self.active_processes.items()):
+            self.get_logger().info(f"Intentando cerrar proceso con PID {pid}")
+
+            # Enviar SIGINT primero (Ctrl+C simulado)
             proc.send_signal(signal.SIGINT)
-            proc.wait()
-        self.active_processes.clear()
+            try:
+                proc.wait(timeout=3)  # Espera 3 segundos
+            except subprocess.TimeoutExpired:
+                self.get_logger().warn(f"Proceso {pid} no respondió a SIGINT, intentando SIGTERM.")
+                proc.kill()  # Intentar SIGTERM
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    self.get_logger().warn(f"Proceso {pid} sigue activo, forzando cierre con SIGKILL.")
+                    proc.kill()  # Si no responde, usar SIGKILL
+
+            # Verificar si el proceso sigue vivo
+            if psutil.pid_exists(pid):
+                self.get_logger().error(f"¡El proceso {pid} sigue activo! Puede haber un problema.")
+
+            # Finalmente, eliminar del diccionario
+            self.active_processes.pop(pid, None)
+
+        self.get_logger().info("Todos los procesos han sido cerrados correctamente.")
+
 
 
 
